@@ -31,7 +31,8 @@ start () {
   echo " * Starting Conceptnet web app"
   sudo -H -u conceptnet sh -c '/home/conceptnet/env/bin/uwsgi \
     --daemonize /home/conceptnet/uwsgi-emperor.log \
-    --ini /home/conceptnet/uwsgi/emperor.ini'
+    --ini /home/conceptnet/uwsgi/emperor.ini \
+    --safe-pidfile /tmp/uwsgi-conceptnet.pid'
   #TODO add healthcheck for the service for restarting it and to start
   # the web-server
   echo "   ...done."
@@ -52,6 +53,10 @@ stop () {
   echo "Stopping services"
   service nginx stop
   service postgresql stop
+  # tried to do it the proper way, but uwsgi is not writing the pid file and I don't have time to figure out why...
+  # kill -INT `cat /tmp/uwsgi-conceptnet.pid`
+  # so instead just kill it:
+  sudo pkill -f uwsgi -9
   exit 0
 }
 
