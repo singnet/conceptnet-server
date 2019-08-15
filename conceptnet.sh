@@ -57,6 +57,9 @@ stop () {
   # kill -INT `cat /tmp/uwsgi-conceptnet.pid`
   # so instead just kill it:
   sudo pkill -f uwsgi -9
+  if [ -z "$CHILD" ]; then
+    kill -TERM "$CHILD"
+  fi
   exit 0
 }
 
@@ -70,4 +73,16 @@ trap 'trap_handler SIGINT' SIGINT
 # For docker stop
 trap 'trap_handler SIGTERM' SIGTERM
 
-eval $@
+CHILD=""
+arg="$@"
+if [ "$arg" == "start"]; then
+  start
+elif [ "$arg" == "build"]; then
+  build
+elif [ "$arg" == "stop"]; then
+  stop
+else
+  eval $@ &
+  CHILD=$!
+  wait "$CHILD"
+fi
