@@ -75,11 +75,11 @@ trap 'trap_handler SIGTERM' SIGTERM
 
 CHILD=""
 arg="$@"
-if [ "$arg" == "start"]; then
+if [ "$arg" == "start" ]; then
   start
-elif [ "$arg" == "build"]; then
+elif [ "$arg" == "build" ]; then
   build
-elif [ "$arg" == "stop"]; then
+elif [ "$arg" == "stop" ]; then
   stop
 else
   eval $@ &
