@@ -25,6 +25,9 @@ RUN cd conceptnet-puppet; \
 
 COPY conceptnet.sh .
 
+RUN apt-get install -y postgresql-server-dev-10 python3-pip
+RUN cd /home/conceptnet/conceptnet5/web && pip3 install -e .
+
 ENTRYPOINT ["bash", "conceptnet.sh"]
 CMD ["start"]
 # TODO
