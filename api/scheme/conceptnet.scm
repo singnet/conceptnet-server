@@ -6,7 +6,10 @@
                     cn5-set-query-limit
                     cn5-enable-central-topic
                     cn5-disable-central-topic
-                    cn5-query))
+                    cn5-query
+                    cn5-enable-cache
+                    cn5-disable-cache
+                    cn5-clear-cache))
 
 (use-modules (web client) ;;; allows to use the http-get procedure
              (rnrs bytevectors) ;;; allows to convert bytevector responses from the conceptnet server to string
@@ -20,7 +23,6 @@
              (opencog) ;;; opencog core
              (opencog nlp) ;;; nlp related functs
              (opencog nlp lg-dict) ;;; 
-	     (opencog logger)
              (opencog nlp relex2logic) ;;; relex related funcs 
              (opencog nlp chatbot)) ;;; chatbot related funcs
 
@@ -81,6 +83,18 @@
 
         ´´´
         (cn5-disable-central-topic) - Disable the central topic search in generated phrase nodes
+        ´´´
+
+        ´´´
+        (cn5-enable-cache) - Enable the caching mechanism
+        ´´´
+
+        ´´´
+        (cn5-disable-cache) - Disable the caching mechanism
+        ´´´
+
+        ´´´
+        (cn5-clear-cache) - Clear the current cashed data
         ´´´
 
         ´´´
@@ -145,6 +159,28 @@
 ;;; (cn5-cache)
 ;;; Used to store known about already performed queries
 (define cn5-cache '())
+
+;;; (cn5-use-cache)
+;;; This variable is used to enable and disable the usage of cache
+(define cn5-use-cache #t)
+
+;;; (cn5-enable-cache)
+;;; This method enables the caching mechanism
+(define (cn5-enable-cache)
+    (set! cn5-use-cache #t)
+)
+
+;;; (cn5-disable-cache)
+;;; This method disables the caching mechanism
+(define (cn5-disable-cache)
+    (set! cn5-use-cache #f)
+)
+
+;;; (cn5-clear-cache)
+;;; This method clears the all the data inside the caching structure
+(define (cn5-clear-cache)
+    (set! cn5-cache '())
+)
 
 ;;; (cn5-concept-net-server-address)
 ;;; Default conceptnet server address.
@@ -510,9 +546,7 @@
             (set! query_string (format #f "~a/~a/~a?offset=~a&limit=~a" concept_prefix query_language concept_string_lower_case query_offset query_limit))
 
             ;;; perform the query to the conceptnet5, it returns a JSON association list
-	    (cog-logger-debug "START_CN5_WEB_QUERY")
             (set! query_results_json (cn5-query-concept-net query_string) )
-	    (cog-logger-debug "END_CN5_WEB_QUERY")
 
             ;;; get the elements under the 'edges' key from the returned JSON
             (set! edges_list (vector->list (assoc-ref query_results_json "edges")) )
@@ -539,8 +573,6 @@
                 )
             )
 
-	    (cog-logger-debug "START CREATING ATOMESE")
-	    (cog-logger-debug (format "Number of edges: ~a" (length edges_list)))
             (for-each
                 (lambda (edge)
                     (let* 
@@ -586,12 +618,12 @@
                 )
                 edges_list
             )
-	    (cog-logger-debug (format "Inserted edges: ~a" inserted_edges))
-	    (cog-logger-debug "END CREATING ATOMESE")
 	
             ;;; set cache with the answer
-            (set! cn5-cache (acons concept_name answer cn5-cache))
-
+            (if (eq cn5-use-cache #t)
+                (set! cn5-cache (acons concept_name answer cn5-cache))
+            )
+            
             ;;; returns the created edges list
             answer            
         ) ;;; begin
