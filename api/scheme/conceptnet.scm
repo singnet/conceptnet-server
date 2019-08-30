@@ -525,111 +525,109 @@
             (black_list blackList)
             (query_limit cn5-query-limit)
             (query_offset 0)
-	    (inserted_edges 0)
+	        (inserted_edges 0)
             (answer '())
+            (cached-element (assoc-ref cn5-cache (cog-name node)))
         )
-	(if (not (assoc-ref cn5-cache concept_name))
-        (begin
-            ;;; normalize the query string to fit concept net standard
-            (set! concept_string_lower_case (cn5-handle-query-string concept_name))
+        (if (not cached-element)
+            (begin
+                ;;; normalize the query string to fit concept net standard
+                (set! concept_string_lower_case (cn5-handle-query-string concept_name))
 
-            ;;; setup the query language
-            (if (eq? language #f)
-                ;;; set default language if none was specified
-                (set! query_language default_language)
+                ;;; setup the query language
+                (if (eq? language #f)
+                    ;;; set default language if none was specified
+                    (set! query_language default_language)
 
-                ;;; set the specified language
-                (set! query_language language)
-            )
-
-            ;;; set the query string
-            (set! query_string (format #f "~a/~a/~a?offset=~a&limit=~a" concept_prefix query_language concept_string_lower_case query_offset query_limit))
-
-            ;;; perform the query to the conceptnet5, it returns a JSON association list
-            (set! query_results_json (cn5-query-concept-net query_string) )
-
-            ;;; get the elements under the 'edges' key from the returned JSON
-            (set! edges_list (vector->list (assoc-ref query_results_json "edges")) )
-
-            ;;; normalize filters to lowercase to facilitate comparison
-            (if (list? language_filter)
-                (set! cn5-language-filter (cn5-normalize-filter language_filter)))
-
-            (if (list? white_list)
-                (set! cn5-white-list (cn5-normalize-filter white_list)))
-
-            (if (list? black_list)
-                (set! cn5-black-list (cn5-normalize-filter black_list)))
-
-            ;;; print query parameters and how it will be performed for debug purposes
-            (if (eq? debug #t)
-                (begin
-                    (newline)
-                    (display (format #f "query language: ~a" query_language))(newline)
-                    (display (format #f "language filters: ~a" language_filter))(newline)
-                    (display (format #f "white list: ~a" white_list))(newline)
-                    (display (format #f "black list: ~a" black_list))(newline)
-                    (newline)
+                    ;;; set the specified language
+                    (set! query_language language)
                 )
-            )
 
-            (for-each
-                (lambda (edge)
-                    (let* 
-                        (
-                            ( relation_type (cn5-parse-relation-type (assoc-ref (assoc-ref edge "rel") "@id") ) ) 
-                            ( start_node_label (assoc-ref (assoc-ref edge "start") "label") )
-                            ( start_node_language (assoc-ref (assoc-ref edge "start") "language") )
-                            ( end_node_label (assoc-ref (assoc-ref edge "end") "label") )
-                            ( end_node_language (assoc-ref (assoc-ref edge "end") "language") )
-                            ( relation_weight (- 1.0 (exact->inexact (/ 1 (assoc-ref edge "weight")) ) ) )
-                        )
-                        (begin
-                            ;;; check if the relation weight of this edge has 
-                            ;;; a significant value, otherwise ignore it
-                            ;;; (if (> relation_weight 0.25)
-				(begin
-				    (set! inserted_edges (+ inserted_edges 1))
-				    ;;; count when an edge is inserted for debug purposes
-                                    (set! answer 
-                                        (append answer 
-                                            (list 
-                                                ;;; create the evaluation link
-                                                (cn5-create-evaluation-link 
-                                                    node
-                                                    concept_string_lower_case
-                                                    relation_type
-                                                    start_node_label
-                                                    start_node_language
-                                                    end_node_label
-                                                    end_node_language
-                                                    relation_weight
-                                                    cn5-language-filter
-                                                    cn5-white-list
-                                                    cn5-black-list
+                ;;; set the query string
+                (set! query_string (format #f "~a/~a/~a?offset=~a&limit=~a" concept_prefix query_language concept_string_lower_case query_offset query_limit))
+
+                ;;; perform the query to the conceptnet5, it returns a JSON association list
+                (set! query_results_json (cn5-query-concept-net query_string) )
+
+                ;;; get the elements under the 'edges' key from the returned JSON
+                (set! edges_list (vector->list (assoc-ref query_results_json "edges")) )
+
+                ;;; normalize filters to lowercase to facilitate comparison
+                (if (list? language_filter)
+                    (set! cn5-language-filter (cn5-normalize-filter language_filter)))
+
+                (if (list? white_list)
+                    (set! cn5-white-list (cn5-normalize-filter white_list)))
+
+                (if (list? black_list)
+                    (set! cn5-black-list (cn5-normalize-filter black_list)))
+
+                ;;; print query parameters and how it will be performed for debug purposes
+                (if (eq? debug #t)
+                    (begin
+                        (newline)
+                        (display (format #f "query language: ~a" query_language))(newline)
+                        (display (format #f "language filters: ~a" language_filter))(newline)
+                        (display (format #f "white list: ~a" white_list))(newline)
+                        (display (format #f "black list: ~a" black_list))(newline)
+                        (newline)
+                    )
+                )
+
+                (for-each
+                    (lambda (edge)
+                        (let* 
+                            (
+                                ( relation_type (cn5-parse-relation-type (assoc-ref (assoc-ref edge "rel") "@id") ) ) 
+                                ( start_node_label (assoc-ref (assoc-ref edge "start") "label") )
+                                ( start_node_language (assoc-ref (assoc-ref edge "start") "language") )
+                                ( end_node_label (assoc-ref (assoc-ref edge "end") "label") )
+                                ( end_node_language (assoc-ref (assoc-ref edge "end") "language") )
+                                ( relation_weight (- 1.0 (exact->inexact (/ 1 (assoc-ref edge "weight")) ) ) )
+                            )
+                            (begin
+                                ;;; check if the relation weight of this edge has 
+                                ;;; a significant value, otherwise ignore it
+                                (if (> relation_weight 0.25)
+                                    (begin
+                                        (set! answer 
+                                            (append answer 
+                                                (list 
+                                                    ;;; create the evaluation link
+                                                    (cn5-create-evaluation-link 
+                                                        node
+                                                        concept_string_lower_case
+                                                        relation_type
+                                                        start_node_label
+                                                        start_node_language
+                                                        end_node_label
+                                                        end_node_language
+                                                        relation_weight
+                                                        cn5-language-filter
+                                                        cn5-white-list
+                                                        cn5-black-list
+                                                    )
                                                 )
                                             )
                                         )
                                     )
-				)
-                            ;;; )
+                                )
+                            )
                         )
                     )
+                    edges_list
                 )
-                edges_list
-            )
-	
-            ;;; set cache with the answer
-            (if (eq cn5-use-cache #t)
-                (set! cn5-cache (acons concept_name answer cn5-cache))
-            )
-            
-            ;;; returns the created edges list
-            answer            
-        ) ;;; begin
-	;;; (assoc-ref cn5-cache concept_name)
-        (list)
-	) ;;; end if
+        
+                ;;; set cache with the answer
+                (if (eq cn5-use-cache #t)
+                    (set! cn5-cache (acons concept_name answer cn5-cache))
+                )
+                
+                ;;; returns the created edges list
+                answer            
+            ) ;;; begin
+            cached-element
+        ) ;;; end if
     )
 )
 
