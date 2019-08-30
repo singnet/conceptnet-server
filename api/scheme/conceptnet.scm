@@ -6,7 +6,10 @@
                     cn5-set-query-limit
                     cn5-enable-central-topic
                     cn5-disable-central-topic
-                    cn5-query))
+                    cn5-query
+                    cn5-enable-cache
+                    cn5-disable-cache
+                    cn5-clear-cache))
 
 (use-modules (web client) ;;; allows to use the http-get procedure
              (rnrs bytevectors) ;;; allows to convert bytevector responses from the conceptnet server to string
@@ -83,6 +86,18 @@
         ´´´
 
         ´´´
+        (cn5-enable-cache) - Enable the caching mechanism
+        ´´´
+
+        ´´´
+        (cn5-disable-cache) - Disable the caching mechanism
+        ´´´
+
+        ´´´
+        (cn5-clear-cache) - Clear the current cashed data
+        ´´´
+
+        ´´´
         (cn5-query node #:key (language #f) (languageFilter #f) (whiteList #f) (blackList #f) (debug #f)) 
         
             * Query the concepnet server and return a list of PredicateNodes representing each found concept. 
@@ -138,6 +153,38 @@
         ´´´
 "
 
+; ----------------------------------------------------------------------
+; Logger setup
+
+;;; (cn5-cache)
+;;; Used to store known about already performed queries
+(define cn5-cache '())
+
+;;; (cn5-use-cache)
+;;; This variable is used to enable and disable the usage of cache
+(define cn5-use-cache #t)
+
+;;; (cn5-enable-cache)
+;;; This method enables the caching mechanism
+(define (cn5-enable-cache)
+    (set! cn5-use-cache #t)
+)
+
+;;; (cn5-disable-cache)
+;;; This method disables the caching mechanism
+(define (cn5-disable-cache)
+    (begin
+        (cn5-clear-cache)
+        (set! cn5-use-cache #f)
+    )
+)
+
+;;; (cn5-clear-cache)
+;;; This method clears the all the data inside the caching structure
+(define (cn5-clear-cache)
+    (set! cn5-cache '())
+)
+
 ;;; (cn5-concept-net-server-address)
 ;;; Default conceptnet server address.
 (define cn5-concept-net-server-address "http://api.conceptnet.io/")
@@ -149,6 +196,18 @@
 ;;; (cn5-seek-central-topic)
 ;;; Central topic search flag
 (define cn5-seek-central-topic #f)
+
+;;; (cn5-black-list)
+;;; Black list containing the unwanted relation types
+(define cn5-black-list '())
+
+;;; (cn5-white-list)
+;;; White list containing the wanted relation types
+(define cn5-white-list '())
+
+;;; (cn5-edges-list)
+;;; Language filter containing all languages for the performed query
+(define cn5-language-filter '())
 
 ;;; (cn5-print-query-limit)
 ;;; print the current configured query limit
@@ -260,26 +319,23 @@
 ;;; this procedure receives a JSON representing a conceptnet assertion and transform it into atomese.
 ;;; it is used as a fold procedure.
 (define (cn5-create-evaluation-link 
+            node
             queryTerm
-            queryEdge 
+            relation_type
+            start_node_label
+            start_node_language
+            end_node_label
+            end_node_language
+            relation_weight
             languageFilter
             whiteList
-            blackList
-            outputList)
+            blackList)
     (let 
         ( 
-            ( relation_type (cn5-parse-relation-type (assoc-ref (assoc-ref queryEdge "rel") "@id") ) ) 
-            ( start_node_label (assoc-ref (assoc-ref queryEdge "start") "label") )
-            ( start_node_language (assoc-ref (assoc-ref queryEdge "start") "language") )
-            ( end_node_label (assoc-ref (assoc-ref queryEdge "end") "label") )
-            ( end_node_language (assoc-ref (assoc-ref queryEdge "end") "language") )
-            ( relation_weight (assoc-ref queryEdge "weight") )
             ( insert_element #t )
+            ( output_list '() )
         )
         (begin
-            ;;; normalize weight to be inside the [0 1] range
-            (set! relation_weight (- 1.0 (exact->inexact (/ 1 relation_weight) ) ) )
-
             ;;; check if the white_list filter is available
             (if (list? whiteList)
                 ;;; if not in the white_list do not transform this element into atomese
@@ -307,10 +363,11 @@
 
             ;;; check if element will be inserted
             (if (eq? insert_element #t)
-                ;;; if everything ok, then insert into the outputList
+                ;;; if everything ok, then insert into the output_list
                 (let 
                     (
                         (generated_edge (cn5-generate-edge 
+                                            node
                                             queryTerm
                                             relation_type 
                                             start_node_label 
@@ -318,13 +375,13 @@
                                             relation_weight))
                     )
                     (if (list? generated_edge)
-                        (append outputList generated_edge)
-                        (append outputList (list generated_edge))
+                        (append output_list generated_edge)
+                        (append output_list (list generated_edge))
                     )
                 )
 
-                ;;; else return the current outputList without any modification
-                outputList                 
+                ;;; else return the current output_list without any modification
+                output_list                 
             )
         )
     )
@@ -391,6 +448,7 @@
 ;;; return a EvaluationLink containing the startnode label and the end node label. Also can include
 ;;; the central tendendy if the flag is true
 (define (cn5-generate-edge
+            node
             queryTerm
             relationType
             startNodeLabel
@@ -398,80 +456,41 @@
             relationWeight)
     (let 
         (
-            (output_list '())
             (query_length (length (string-split queryTerm #\ )))
-            (startNodeIsPhrase #f)
-            (endNodeIsPhrase #f)
         )
         (begin
             (let
                 (
                     (generated_edge 
-                        (cog-set-tv! ;;; if true returns a evaluationlink
-                            (EvaluationLink 
-                                (PredicateNode relationType)
-                                (ListLink
-                                    (if (> (length (string-split startNodeLabel #\ )) 1)
-                                        (begin 
-                                            (set! startNodeIsPhrase #t)
-                                            (PhraseNode startNodeLabel)
-                                        )
-                                        (WordNode startNodeLabel)
-                                    )
-                                                                                        
-                                    (if (> (length (string-split endNodeLabel #\ )) 1)
-                                        (begin
-                                            (set! endNodeIsPhrase #t)
+                        (EvaluationLink
+                            (PredicateNode relationType)
+                            (if (equal? queryTerm startNodeLabel) 
+                                (begin
+                                    (ListLink
+                                        node
+                                        (if (> (length (string-split endNodeLabel #\ )) 1)
                                             (PhraseNode endNodeLabel)
+                                            (WordNode endNodeLabel)
                                         )
-                                        (WordNode endNodeLabel)
+                                    )
+                                ) 
+                                (begin ; (equal? queryTerm endNodeLabel)
+                                    (ListLink
+                                        (if (> (length (string-split endNodeLabel #\ )) 1)
+                                            (PhraseNode endNodeLabel)
+                                            (WordNode endNodeLabel)
+                                        )
+                                        node
                                     )
                                 )
                             )
-                            (cog-new-stv relationWeight relationWeight)
+			    (stv relationWeight relationWeight)
                         )
                     )
                 )
-                
-                ;;; this part of the method get a phrase node and extract the central term with the same
-                ;;; syntactic class as the query term, only if the query term is ONE word
-                (begin
-                    (if (eq? cn5-seek-central-topic #t)
-                        (begin
-                            (if (and (eq? startNodeIsPhrase #t) (eq? query_length 1))
-                                (let
-                                    (
-                                        (start_node_same_syn_edge (cn5-get-edge-same-syn-class queryTerm startNodeLabel endNodeLabel relationType relationWeight #t))
-                                    )
-                                    (if (list? start_node_same_syn_edge)
-                                        (set! output_list (append output_list start_node_same_syn_edge))
-                                    )
-                                )
-                            )
 
-                            (if (and (eq? endNodeIsPhrase #t) (eq? query_length 1))
-                                (let 
-                                    (
-                                        (end_node_same_syn_edge (cn5-get-edge-same-syn-class queryTerm startNodeLabel endNodeLabel relationType relationWeight #f))
-                                    )
-                                    (if (list? end_node_same_syn_edge)
-                                        (set! output_list (append output_list end_node_same_syn_edge))
-                                    )
-                                )
-                            )
-                        )
-                    )
-
-                    ;;; if found central topic insert it into the output_list with the generated edge
-                    ;;; otherwise returns only the generated edge
-                    (if (> (length output_list) 0)
-                        (begin 
-                            (set! output_list (append output_list (list generated_edge)))
-                            output_list
-                        )
-                        generated_edge
-                    )
-                )
+                ;;; returns the generated edge
+                generated_edge
             )
         )
     )
@@ -509,69 +528,109 @@
             (black_list blackList)
             (query_limit cn5-query-limit)
             (query_offset 0)
+	        (inserted_edges 0)
+            (answer '())
+            (cached-element (assoc-ref cn5-cache (cog-name node)))
         )
+        (if (not cached-element)
+            (begin
+                ;;; normalize the query string to fit concept net standard
+                (set! concept_string_lower_case (cn5-handle-query-string concept_name))
 
-        (begin
-            ;;; normalize the query string to fit concept net standard
-            (set! concept_string_lower_case (cn5-handle-query-string concept_name))
+                ;;; setup the query language
+                (if (eq? language #f)
+                    ;;; set default language if none was specified
+                    (set! query_language default_language)
 
-            ;;; setup the query language
-            (if (eq? language #f)
-                ;;; set default language if none was specified
-                (set! query_language default_language)
-
-                ;;; set the specified language
-                (set! query_language language)
-            )
-
-            ;;; set the query string
-            (set! query_string (format #f "~a/~a/~a?offset=~a&limit=~a" concept_prefix query_language concept_string_lower_case query_offset query_limit))
-
-            ;;; perform the query to the conceptnet5, it returns a JSON association list
-            (set! query_results_json (cn5-query-concept-net query_string) )
-
-            ;;; get the elements under the 'edges' key from the returned JSON
-            (set! edges_list (vector->list (assoc-ref query_results_json "edges")) )
-
-            ;;; normalize filters to lowercase to facilitate comparison
-            (if (list? language_filter)
-                (set! language_filter (cn5-normalize-filter language_filter)))
-
-            (if (list? white_list)
-                (set! white_list (cn5-normalize-filter white_list)))
-
-            (if (list? black_list)
-                (set! black_list (cn5-normalize-filter black_list)))
-
-            ;;; build parameters for fold procedure (query terms list, whitelist, blacklist, and languageFilter)
-            (set! query_term_list (make-list (length edges_list) concept_name))
-            (set! language_filter (make-list (length edges_list) language_filter))
-            (set! white_list (make-list (length edges_list) white_list))
-            (set! black_list (make-list (length edges_list) black_list))
-
-            ;;; print query parameters and how it will be performed for debug purposes
-            (if (eq? debug #t)
-                (begin
-                    (newline)
-                    (display (format #f "query language: ~a" query_language))(newline)
-                    (display (format #f "language filters: ~a" language_filter))(newline)
-                    (display (format #f "white list: ~a" white_list))(newline)
-                    (display (format #f "black list: ~a" black_list))(newline)
-                    (newline)
+                    ;;; set the specified language
+                    (set! query_language language)
                 )
-            )
 
-            ;;; iterate over all elements and create the correspondent atomese object
-            (fold
-                cn5-create-evaluation-link ;;; procedure to create atomese code
-                '() ;;; list to be returned
-                query_term_list ;;; query term for edge generation
-                edges_list ;;; query results
-                language_filter
-                white_list
-                black_list
-            )
-        )
+                ;;; set the query string
+                (set! query_string (format #f "~a/~a/~a?offset=~a&limit=~a" concept_prefix query_language concept_string_lower_case query_offset query_limit))
+
+                ;;; perform the query to the conceptnet5, it returns a JSON association list
+                (set! query_results_json (cn5-query-concept-net query_string) )
+
+                ;;; get the elements under the 'edges' key from the returned JSON
+                (set! edges_list (vector->list (assoc-ref query_results_json "edges")) )
+
+                ;;; normalize filters to lowercase to facilitate comparison
+                (if (list? language_filter)
+                    (set! cn5-language-filter (cn5-normalize-filter language_filter)))
+
+                (if (list? white_list)
+                    (set! cn5-white-list (cn5-normalize-filter white_list)))
+
+                (if (list? black_list)
+                    (set! cn5-black-list (cn5-normalize-filter black_list)))
+
+                ;;; print query parameters and how it will be performed for debug purposes
+                (if (eq? debug #t)
+                    (begin
+                        (newline)
+                        (display (format #f "query language: ~a" query_language))(newline)
+                        (display (format #f "language filters: ~a" language_filter))(newline)
+                        (display (format #f "white list: ~a" white_list))(newline)
+                        (display (format #f "black list: ~a" black_list))(newline)
+                        (newline)
+                    )
+                )
+
+                (for-each
+                    (lambda (edge)
+                        (let* 
+                            (
+                                ( relation_type (cn5-parse-relation-type (assoc-ref (assoc-ref edge "rel") "@id") ) ) 
+                                ( start_node_label (assoc-ref (assoc-ref edge "start") "label") )
+                                ( start_node_language (assoc-ref (assoc-ref edge "start") "language") )
+                                ( end_node_label (assoc-ref (assoc-ref edge "end") "label") )
+                                ( end_node_language (assoc-ref (assoc-ref edge "end") "language") )
+                                ( relation_weight (- 1.0 (exact->inexact (/ 1 (assoc-ref edge "weight")) ) ) )
+                            )
+                            (begin
+                                ;;; check if the relation weight of this edge has 
+                                ;;; a significant value, otherwise ignore it
+                                (if (> relation_weight 0.25)
+                                    (begin
+                                        (set! answer 
+                                            (append answer 
+                                                (list 
+                                                    ;;; create the evaluation link
+                                                    (cn5-create-evaluation-link 
+                                                        node
+                                                        concept_string_lower_case
+                                                        relation_type
+                                                        start_node_label
+                                                        start_node_language
+                                                        end_node_label
+                                                        end_node_language
+                                                        relation_weight
+                                                        cn5-language-filter
+                                                        cn5-white-list
+                                                        cn5-black-list
+                                                    )
+                                                )
+                                            )
+                                        )
+                                    )
+                                )
+                            )
+                        )
+                    )
+                    edges_list
+                )
+        
+                ;;; set cache with the answer
+                (if (eq cn5-use-cache #t)
+                    (set! cn5-cache (acons concept_name answer cn5-cache))
+                )
+                
+                ;;; returns the created edges list
+                answer            
+            ) ;;; begin
+            cached-element
+        ) ;;; end if
     )
 )
 
