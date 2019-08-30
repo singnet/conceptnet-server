@@ -173,7 +173,10 @@
 ;;; (cn5-disable-cache)
 ;;; This method disables the caching mechanism
 (define (cn5-disable-cache)
-    (set! cn5-use-cache #f)
+    (begin
+        (cn5-clear-cache)
+        (set! cn5-use-cache #f)
+    )
 )
 
 ;;; (cn5-clear-cache)
