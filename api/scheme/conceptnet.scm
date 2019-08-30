@@ -622,7 +622,7 @@
                 )
         
                 ;;; set cache with the answer
-                (if (eq cn5-use-cache #t)
+                (if (cn5-use-cache)
                     (set! cn5-cache (acons concept_name answer cn5-cache))
                 )
                 
