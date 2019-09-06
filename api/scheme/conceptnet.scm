@@ -1,4 +1,4 @@
-(define-module (conceptnet) 
+(define-module (conceptnet)
                 #:export(
                     cn5-print-conceptnet-server-host
                     cn5-set-conceptnet-server-host
@@ -22,8 +22,8 @@
              (json) ;;; json opperations
              (opencog) ;;; opencog core
              (opencog nlp) ;;; nlp related functs
-             (opencog nlp lg-dict) ;;; 
-             (opencog nlp relex2logic) ;;; relex related funcs 
+             (opencog nlp lg-dict) ;;;
+             (opencog nlp relex2logic) ;;; relex related funcs
              (opencog nlp chatbot)) ;;; chatbot related funcs
 
 ;;; utils for guile editing
@@ -59,11 +59,11 @@
         procedures described bellow.
 
         ´´´
-        (cn5-print-conceptnet-server-host) - This procedure prints the current server address 
+        (cn5-print-conceptnet-server-host) - This procedure prints the current server address
         ´´´
-        
+
         ´´´
-        (cn5-set-conceptnet-server-host address #:key (port 80)) - This method allows to set the server host address that will 
+        (cn5-set-conceptnet-server-host address #:key (port 80)) - This method allows to set the server host address that will
         be used to perform queries.
 
             #:port - allows to define which port will be used to access the server
@@ -98,21 +98,21 @@
         ´´´
 
         ´´´
-        (cn5-query node #:key (language #f) (languageFilter #f) (whiteList #f) (blackList #f) (debug #f)) 
-        
-            * Query the concepnet server and return a list of PredicateNodes representing each found concept. 
+        (cn5-query node #:key (language #f) (languageFilter #f) (whiteList #f) (blackList #f) (debug #f))
+
+            * Query the concepnet server and return a list of PredicateNodes representing each found concept.
             * A found concept is represented as a WordNode or a PhraseNode.
-            * The central topic of a PhraseNode can also be extracted which generated another PhraseNode to hold it. 
+            * The central topic of a PhraseNode can also be extracted which generated another PhraseNode to hold it.
             * The central topic will be extracted only if the (cn5-enable-central-topic) is called before calling this method.
 
-            #:language - It is a string that allows to set in which language the query will be performed, 
-                         otherwise it will be performed in english. It should be defined as a string 
+            #:language - It is a string that allows to set in which language the query will be performed,
+                         otherwise it will be performed in english. It should be defined as a string
                          representing the language code. For example, \"en\" \"jp\" \"pt\" are valid language code strings.
 
             #:languageFilter - It is a LIST that allows to define which languages will be returned from the query results.
                                It should contain language codes. For example, '(\"en\" \"jp\" \"pt\") is a valid language filter.
 
-            #:whiteList - It is a LIST that allows to define which assertion types will be choosen from the query results. 
+            #:whiteList - It is a LIST that allows to define which assertion types will be choosen from the query results.
                           All other types are ignored.
                           It should define conceptnet assertion types. For example, '(\"IsPartOf\" \"IsA\") is a valid whiteList.
 
@@ -121,7 +121,7 @@
 
             #:debug - It is a boolean that allows to define when the query status will be printed in the terminal to the user.
                       A query status is composed by the following fields.
-                    
+
                         * query language
                         * language filter
                         * white list
@@ -131,13 +131,13 @@
     # USAGE EXAMPLES
 
         ´´´
-        (cn5-query (ConceptNode \"tree\")) 
+        (cn5-query (ConceptNode \"tree\"))
                     -> will return an atomese code for all the obtained results.
-        
-        (cn5-query (ConceptNode \"tree\") #:language \"en\") 
+
+        (cn5-query (ConceptNode \"tree\") #:language \"en\")
                     -> will return an atomese code for all the obtained results that are in english.
 
-        (cn5-query (ConceptNode \"tree\") #:language \"en\" #:whiteList '(\"IsA\")) 
+        (cn5-query (ConceptNode \"tree\") #:language \"en\" #:whiteList '(\"IsA\"))
                     -> will return an atomese code for all the obtained results that are in english where the relation type is equal to \"IsA\"
 
         (cn5-query (ConceptNode \"tree\") #:language \"en\" #:blackList '(\"IsA\"))
@@ -242,7 +242,7 @@
 ;;; (cn5-set-conceptnet-server-host)
 ;;; This procedure set the server host address and port
 (define* (cn5-set-conceptnet-server-host address #:key (port 80))
-    (let 
+    (let
         ;;; let the full_address be the free api
         ((full_address ""))
         (begin
@@ -259,11 +259,11 @@
 )
 
 ;;; (cn5-parse-relation-type)
-;;; This method is used to parse the relation type of concepnet from "/r/RelationType" to 
+;;; This method is used to parse the relation type of concepnet from "/r/RelationType" to
 ;;; just "RelationType". In other words, it removes the /r/ and returns a string containing
 ;;; only the relation.
 (define (cn5-parse-relation-type conceptNet5Rel)
-    (let 
+    (let
         (
             (parsed_relation (string-split conceptNet5Rel #\/))
         )
@@ -290,10 +290,10 @@
     (let ((server_addres cn5-concept-net-server-address))
         (begin
             (set! server_addres (format #f "~a~a" server_addres query))
-            (json-string->scm 
-                (utf8->string 
-                    (receive (head query_result) 
-                        (http-get server_addres) 
+            (json-string->scm
+                (utf8->string
+                    (receive (head query_result)
+                        (http-get server_addres)
                         query_result
                     )
                 )
@@ -318,7 +318,7 @@
 ;;; (cn5-create-evaluation-link)
 ;;; this procedure receives a JSON representing a conceptnet assertion and transform it into atomese.
 ;;; it is used as a fold procedure.
-(define (cn5-create-evaluation-link 
+(define (cn5-create-evaluation-link
             node
             queryTerm
             relation_type
@@ -330,8 +330,8 @@
             languageFilter
             whiteList
             blackList)
-    (let 
-        ( 
+    (let
+        (
             ( insert_element #t )
             ( output_list '() )
         )
@@ -353,7 +353,7 @@
 
             (if (list? languageFilter)
                 ;;; if not in the allowed languages do not transform this element into atomese
-                (if (or 
+                (if (or
                         (eq? (assoc-ref languageFilter start_node_language) #f)
                         (eq? (assoc-ref languageFilter end_node_language) #f)
                     )
@@ -364,14 +364,14 @@
             ;;; check if element will be inserted
             (if (eq? insert_element #t)
                 ;;; if everything ok, then insert into the output_list
-                (let 
+                (let
                     (
-                        (generated_edge (cn5-generate-edge 
+                        (generated_edge (cn5-generate-edge
                                             node
                                             queryTerm
-                                            relation_type 
-                                            start_node_label 
-                                            end_node_label 
+                                            relation_type
+                                            start_node_label
+                                            end_node_label
                                             relation_weight))
                     )
                     (if (list? generated_edge)
@@ -381,18 +381,18 @@
                 )
 
                 ;;; else return the current output_list without any modification
-                output_list                 
+                output_list
             )
         )
     )
 )
 
-;;; (cn5-get-edge-same-syn-class queryTerm startNodeLabel endNodeLabel relationType relationWeight start) 
+;;; (cn5-get-edge-same-syn-class queryTerm startNodeLabel endNodeLabel relationType relationWeight start)
 ;;; seek for the central term of a sentence if the find-central-term flag is set to true and returns a EvaluationLink containing it
-(define (cn5-get-edge-same-syn-class queryTerm startNodeLabel endNodeLabel relationType relationWeight start) 
-    (let 
+(define (cn5-get-edge-same-syn-class queryTerm startNodeLabel endNodeLabel relationType relationWeight start)
+    (let
         (
-            (same_syntactic_class_word 
+            (same_syntactic_class_word
                 (if (eq? start #t)
                     (cn5-get-same-syntactic-class queryTerm startNodeLabel)
                     (cn5-get-same-syntactic-class queryTerm endNodeLabel)
@@ -401,22 +401,22 @@
         )
         (if (list? same_syntactic_class_word)
             ;;; return new valid link
-            (let 
+            (let
                 (
-                    (same_syntactic_class_start_word_edge 
+                    (same_syntactic_class_start_word_edge
                         (cog-set-tv! ;;; if true returns a evaluationlink
-                            (EvaluationLink 
-                                (PredicateNode relationType)            
+                            (EvaluationLink
+                                (PredicateNode relationType)
                                 (if (eq? start #t)
                                     (begin
                                         (ListLink
-                                            (WordNode (car same_syntactic_class_word))                              
+                                            (WordNode (car same_syntactic_class_word))
                                             (WordNode endNodeLabel)
                                         )
                                     )
                                     (begin
                                         (ListLink
-                                            (WordNode startNodeLabel)                              
+                                            (WordNode startNodeLabel)
                                             (WordNode (car same_syntactic_class_word))
                                         )
                                     )
@@ -454,17 +454,17 @@
             startNodeLabel
             endNodeLabel
             relationWeight)
-    (let 
+    (let
         (
             (query_length (length (string-split queryTerm #\ )))
         )
         (begin
             (let
                 (
-                    (generated_edge 
+                    (generated_edge
                         (EvaluationLink
                             (PredicateNode relationType)
-                            (if (equal? queryTerm startNodeLabel) 
+                            (if (equal? queryTerm startNodeLabel)
                                 (begin
                                     (ListLink
                                         node
@@ -473,7 +473,7 @@
                                             (WordNode endNodeLabel)
                                         )
                                     )
-                                ) 
+                                )
                                 (begin ; (equal? queryTerm endNodeLabel)
                                     (ListLink
                                         (if (> (length (string-split endNodeLabel #\ )) 1)
@@ -500,15 +500,15 @@
 ;;; Performs a query into a conceptnet5 server and generate atomese from the returned assertions.
 (define* (cn5-query
             node ;;; node used as the query seed
-                #:key ;;; marks optional parameters bellow 
+                #:key ;;; marks optional parameters bellow
                     (language #f);;; language to perform the query
                     (languageFilter #f) ;;; language filter for query results
                     (whiteList #f) ;;; whitelisted relations
                     (blackList #f) ;;; blacklisted relations
                     (debug #f) ;;; debug flag for console print
                     )
-    (let 
-        (  
+    (let
+        (
             ;;; inputs
             (concept_name (cog-name node))
 
@@ -553,7 +553,9 @@
                 (set! query_results_json (cn5-query-concept-net query_string) )
 
                 ;;; get the elements under the 'edges' key from the returned JSON
-                (set! edges_list (vector->list (assoc-ref query_results_json "edges")) )
+                (let ((edge_vector (assoc-ref query_results_json "edges")))
+                    (if (vector? edge_vector)
+                        (set! edges_list (vector->list (assoc-ref query_results_json "edges")))))
 
                 ;;; normalize filters to lowercase to facilitate comparison
                 (if (list? language_filter)
@@ -579,9 +581,9 @@
 
                 (for-each
                     (lambda (edge)
-                        (let* 
+                        (let*
                             (
-                                ( relation_type (cn5-parse-relation-type (assoc-ref (assoc-ref edge "rel") "@id") ) ) 
+                                ( relation_type (cn5-parse-relation-type (assoc-ref (assoc-ref edge "rel") "@id") ) )
                                 ( start_node_label (assoc-ref (assoc-ref edge "start") "label") )
                                 ( start_node_language (assoc-ref (assoc-ref edge "start") "language") )
                                 ( end_node_label (assoc-ref (assoc-ref edge "end") "label") )
@@ -589,15 +591,15 @@
                                 ( relation_weight (- 1.0 (exact->inexact (/ 1 (assoc-ref edge "weight")) ) ) )
                             )
                             (begin
-                                ;;; check if the relation weight of this edge has 
+                                ;;; check if the relation weight of this edge has
                                 ;;; a significant value, otherwise ignore it
                                 (if (> relation_weight 0.25)
                                     (begin
-                                        (set! answer 
-                                            (append answer 
-                                                (list 
+                                        (set! answer
+                                            (append answer
+                                                (list
                                                     ;;; create the evaluation link
-                                                    (cn5-create-evaluation-link 
+                                                    (cn5-create-evaluation-link
                                                         node
                                                         concept_string_lower_case
                                                         relation_type
@@ -620,14 +622,14 @@
                     )
                     edges_list
                 )
-        
+
                 ;;; set cache with the answer
                 (if (eq? cn5-use-cache #t)
                     (set! cn5-cache (acons concept_name answer cn5-cache))
                 )
-                
+
                 ;;; returns the created edges list
-                answer            
+                answer
             ) ;;; begin
             cached-element
         ) ;;; end if
@@ -649,8 +651,8 @@
 ;;; (cn5-get-same-syntactic-class term phrase)
 ;;; return a list containg the word in the phrase that is from the same sintactic class as the term
 (define (cn5-get-same-syntactic-class term phrase)
-    (let 
-        ( 
+    (let
+        (
             (syntactic_class_term #f)
             (syntactic_class_and_words_matrix (cn5-get-syntactic-classes phrase))
             (words_phrase_list '())
@@ -669,7 +671,7 @@
 
         ;;; try to find the term syntactic class inside the input phrase
         (set! syntactic_class_found_index (cn5-get-list-index syntactic_class_phrase_list syntactic_class_term))
-                    
+
         ;;; if element was found insert it into the output list
         (if (> syntactic_class_found_index -1)
             (set! output_list (append output_list (list (list-ref words_phrase_list syntactic_class_found_index))))
@@ -701,7 +703,7 @@
 
         ;;; parse the input term with the relex server
         (relex-parse sentence)
-        
+
         (let
             (
                 ;;; get all WordInstanceNodes for each word in the parsed sentence
@@ -716,7 +718,7 @@
 
 ;;; (cn5-get-lemma-and-syntactic-class )
 ;;; get all lemmas and sintactic classes from a set of WordInstanceNodes
-(define* (cn5-get-lemma-and-syntactic-class 
+(define* (cn5-get-lemma-and-syntactic-class
             wordInstanceNodesList
                 #:key
                     (filter #f)
@@ -740,7 +742,7 @@
                                 (syntactic_class (cog-name (car (cog-chase-link 'PartOfSpeechLink 'DefinedLinguisticConceptNode wordInstanceNode))))
                                 (insert #t)
                             )
-                            (begin 
+                            (begin
                                 (if (list? filter)
                                     (if (eq? (member syntactic_class filter) #f)
                                         (set! insert #f)
