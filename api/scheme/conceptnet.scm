@@ -555,7 +555,8 @@
                 ;;; get the elements under the 'edges' key from the returned JSON
                 (let ((edge_vector (assoc-ref query_results_json "edges")))
                     (if (vector? edge_vector)
-                        (set! edges_list (vector->list (assoc-ref query_results_json "edges")))))
+                        (set! edges_list (vector->list (assoc-ref query_results_json "edges")))
+                        (error "Check if the database is built")))
 
                 ;;; normalize filters to lowercase to facilitate comparison
                 (if (list? language_filter)
